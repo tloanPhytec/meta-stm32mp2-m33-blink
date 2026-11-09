@@ -1,0 +1,220 @@
+From f83325d161ced07c5aedcfe4efa7d82cb7274e6d Mon Sep 17 00:00:00 2001
+From: tloan <tloan@localhost>
+Date: Mon, 9 Nov 2026 13:37:19 -0800
+Subject: [PATCH] phyFLEX-stm32mp2 M33 blink example: ports the upstream EV1
+ GPIO_EXTI example from stm32cubemp2-v1-3-2
+
+---
+ .../BSP/STM32MP257F-EV1/stm32mp257f_eval.h    | 32 ++++-----
+ .../GPIO/GPIO_EXTI/CM33/NonSecure/Src/main.c  | 72 +++++++++++--------
+ .../CM33/NonSecure/Src/stm32mp2xx_it.c        |  2 +-
+ 3 files changed, 58 insertions(+), 48 deletions(-)
+
+diff --git a/Drivers/BSP/STM32MP257F-EV1/stm32mp257f_eval.h b/Drivers/BSP/STM32MP257F-EV1/stm32mp257f_eval.h
+index fe5aa8a..29176a8 100644
+--- a/Drivers/BSP/STM32MP257F-EV1/stm32mp257f_eval.h
++++ b/Drivers/BSP/STM32MP257F-EV1/stm32mp257f_eval.h
+@@ -212,13 +212,13 @@ typedef struct
+ #define LED2_GPIO_RIF_RES_TYP_GPIO       RESMGR_RESOURCE_RIF_GPIOD
+ #define LED2_GPIO_RIF_RES_NUM_GPIO       RESMGR_GPIO_PIN(8)
+ 
+-#define LED3_GPIO_PORT                   GPIOJ
+-#define LED3_PIN                         GPIO_PIN_6
+-#define LED3_GPIO_CLK_ENABLE()           __HAL_RCC_GPIOJ_CLK_ENABLE()
+-#define LED3_GPIO_CLK_DISABLE()          __HAL_RCC_GPIOJ_CLK_DISABLE()
+-#define LED3_GPIO_IS_CLK_ENABLED()       __HAL_RCC_GPIOJ_IS_CLK_ENABLED()
+-#define LED3_GPIO_RIF_RES_TYP_GPIO       RESMGR_RESOURCE_RIF_GPIOJ
+-#define LED3_GPIO_RIF_RES_NUM_GPIO       RESMGR_GPIO_PIN(6)
++#define LED3_GPIO_PORT                   GPIOH
++#define LED3_PIN                         GPIO_PIN_5
++#define LED3_GPIO_CLK_ENABLE()           __HAL_RCC_GPIOH_CLK_ENABLE()
++#define LED3_GPIO_CLK_DISABLE()          __HAL_RCC_GPIOH_CLK_DISABLE()
++#define LED3_GPIO_IS_CLK_ENABLED()       __HAL_RCC_GPIOH_IS_CLK_ENABLED()
++#define LED3_GPIO_RIF_RES_TYP_GPIO       RESMGR_RESOURCE_RIF_GPIOH
++#define LED3_GPIO_RIF_RES_NUM_GPIO       RESMGR_GPIO_PIN(5)
+ 
+ #define LED4_GPIO_PORT                   GPIOJ
+ #define LED4_PIN                         GPIO_PIN_7
+@@ -277,15 +277,15 @@ typedef struct
+   * @brief USER2 push-button
+   */
+ #if defined (CORE_CA35) || defined (CORE_CM33)
+-#define BUTTON_USER2_PIN                   GPIO_PIN_8
+-#define BUTTON_USER2_GPIO_PORT             GPIOG
+-#define BUTTON_USER2_GPIO_CLK_ENABLE()     __HAL_RCC_GPIOG_CLK_ENABLE()
+-#define BUTTON_USER2_GPIO_CLK_DISABLE()    __HAL_RCC_GPIOG_CLK_DISABLE()
+-#define BUTTON_USER2_GPIO_IS_CLK_ENABLE()  __HAL_RCC_GPIOG_IS_CLK_ENABLED()
+-#define BUTTON_USER2_EXTI_IRQn             EXTI2_8_IRQn
+-#define BUTTON_USER2_EXTI_LINE             EXTI2_LINE_8
+-#define BUTTON_USER2_RIF_RES_TYP_GPIO      RESMGR_RESOURCE_RIF_GPIOG
+-#define BUTTON_USER2_RIF_RES_NUM_GPIO      RESMGR_GPIO_PIN(8)
++#define BUTTON_USER2_PIN                   GPIO_PIN_11
++#define BUTTON_USER2_GPIO_PORT             GPIOF
++#define BUTTON_USER2_GPIO_CLK_ENABLE()     __HAL_RCC_GPIOF_CLK_ENABLE()
++#define BUTTON_USER2_GPIO_CLK_DISABLE()    __HAL_RCC_GPIOF_CLK_DISABLE()
++#define BUTTON_USER2_GPIO_IS_CLK_ENABLE()  __HAL_RCC_GPIOF_IS_CLK_ENABLED()
++#define BUTTON_USER2_EXTI_IRQn             EXTI2_11_IRQn
++#define BUTTON_USER2_EXTI_LINE             EXTI2_LINE_11
++#define BUTTON_USER2_RIF_RES_TYP_GPIO      RESMGR_RESOURCE_RIF_GPIOF
++#define BUTTON_USER2_RIF_RES_NUM_GPIO      RESMGR_GPIO_PIN(11)
+ #endif /* defined (CORE_CA35) || defined (CORE_CM33) */
+ /**
+   * @brief TAMPER push-button
+diff --git a/Projects/STM32MP257F-EV1/Examples/GPIO/GPIO_EXTI/CM33/NonSecure/Src/main.c b/Projects/STM32MP257F-EV1/Examples/GPIO/GPIO_EXTI/CM33/NonSecure/Src/main.c
+index 01be901..0d0f976 100644
+--- a/Projects/STM32MP257F-EV1/Examples/GPIO/GPIO_EXTI/CM33/NonSecure/Src/main.c
++++ b/Projects/STM32MP257F-EV1/Examples/GPIO/GPIO_EXTI/CM33/NonSecure/Src/main.c
+@@ -45,6 +45,7 @@
+ 
+ /* Private variables ---------------------------------------------------------*/
+ IPCC_HandleTypeDef   hipcc1;
++static volatile int blinking = 1;
+ 
+ /* USER CODE BEGIN PV */
+ EXTI_HandleTypeDef hexti;
+@@ -141,24 +142,24 @@ int main(void)
+   /* USER CODE BEGIN 2 */
+   /* -2- Configure EXTI2 (connected to PG.8 pin) in interrupt mode */
+   MX_EXTI2_Init();
++  uint32_t last_toggle = HAL_GetTick();
+ 
+   /* Infinite loop */
+   while (1)
+   {
+     /* USER CODE END WHILE */
+-	  volatile uint32_t sum = 0;
+-	     for (uint32_t i = 0; i < 1000; i++)
+-	     {
+-	         sum += i;
+-	     }
+-	     if(HAL_GPIO_ReadPin(GPIOZ, GPIO_PIN_3)== GPIO_PIN_SET)
+-	     		      {
+-	     		        HAL_GPIO_WritePin(GPIOZ, GPIO_PIN_3, 0);
+-	     		      }
+-	     		      else
+-	     		      {
+-	     		        HAL_GPIO_WritePin(GPIOZ, GPIO_PIN_3, 1);
+-	     		      }
++	  uint32_t now = HAL_GetTick();
++
++	  if (!blinking)
++	  {
++	      BSP_LED_Off(LED3);
++	      last_toggle = now;
++	  }
++	  else if ((uint32_t)(now - last_toggle) >= 250U)
++	  {
++	      last_toggle = now;
++	      BSP_LED_Toggle(LED3);
++	  }
+     /* USER CODE BEGIN 3 */
+ 
+   }
+@@ -318,12 +319,12 @@ static void MX_GPIO_Init(void)
+ /* USER CODE END MX_GPIO_Init_1 */
+ 
+   /* GPIO Ports Clock Enable */
+-	  GPIO_InitTypeDef GPIO_InitStruct;
+-	  GPIO_InitStruct.Pin = GPIO_PIN_3;
+-	  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;;
+-	  GPIO_InitStruct.Pull = GPIO_PULLUP;
+-	  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+-	  HAL_GPIO_Init(GPIOZ, &GPIO_InitStruct);
++	  //GPIO_InitTypeDef GPIO_InitStruct;
++	  //GPIO_InitStruct.Pin = GPIO_PIN_3;
++	  //GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;;
++	  //GPIO_InitStruct.Pull = GPIO_PULLUP;
++	  //GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
++	  //HAL_GPIO_Init(GPIOZ, &GPIO_InitStruct);
+ /* USER CODE BEGIN MX_GPIO_Init_2 */
+ /* USER CODE END MX_GPIO_Init_2 */
+ }
+@@ -340,27 +341,27 @@ static void MX_EXTI2_Init(void)
+   EXTI_ConfigTypeDef EXTI_ConfigStructure;
+ 
+   /* Enable GPIOG clock */
+-  if (RESMGR_STATUS_ACCESS_OK == ResMgr_Request(RESMGR_RESOURCE_RIF_RCC, RESMGR_RCC_RESOURCE(96)))
++  if (RESMGR_STATUS_ACCESS_OK == ResMgr_Request(RESMGR_RESOURCE_RIF_RCC, RESMGR_RCC_RESOURCE(95)))
+   {
+-	__HAL_RCC_GPIOG_CLK_ENABLE();
++	__HAL_RCC_GPIOF_CLK_ENABLE();
+   }
+   /* Acquire GPIOG8 using Resource manager */
+-  if (RESMGR_STATUS_ACCESS_OK != ResMgr_Request(RESMGR_RESOURCE_RIF_GPIOG, RESMGR_GPIO_PIN(8)))
++  if (RESMGR_STATUS_ACCESS_OK != ResMgr_Request(RESMGR_RESOURCE_RIF_GPIOF, RESMGR_GPIO_PIN(11)))
+   {
+ 	  Error_Handler();
+   }
+ 
+   /* Configure PG.8 pin as input floating */
+   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+-  GPIO_InitStruct.Pull = GPIO_NOPULL;
++  GPIO_InitStruct.Pull = GPIO_PULLUP;
+   GPIO_InitStruct.Pin = BUTTON_USER2_PIN;
+-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
++  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+   HAL_GPIO_Init(BUTTON_USER2_GPIO_PORT, &GPIO_InitStruct);
+ 
+   /* Set configuration except Interrupt and Event mask of Exti line 8*/
+-  EXTI_ConfigStructure.Line = EXTI2_LINE_8;
++  EXTI_ConfigStructure.Line = EXTI2_LINE_11;
+   EXTI_ConfigStructure.Trigger = EXTI_TRIGGER_FALLING;
+-  EXTI_ConfigStructure.GPIOSel = EXTI_GPIOG;
++  EXTI_ConfigStructure.GPIOSel = EXTI_GPIOF;
+   EXTI_ConfigStructure.Mode = EXTI_MODE_INTERRUPT;
+   HAL_EXTI_SetConfigLine(&hexti, &EXTI_ConfigStructure);
+ 
+@@ -368,8 +369,8 @@ static void MX_EXTI2_Init(void)
+   HAL_EXTI_RegisterCallback(&hexti, HAL_EXTI_FALLING_CB_ID, Exti2FallingCb);
+ 
+   /* Enable and set line 2 Interrupt to the lowest priority */
+-  HAL_NVIC_SetPriority(EXTI2_8_IRQn, DEFAULT_IRQ_PRIO, 0);
+-  HAL_NVIC_EnableIRQ(EXTI2_8_IRQn);
++  HAL_NVIC_SetPriority(EXTI2_11_IRQn, DEFAULT_IRQ_PRIO, 0);
++  HAL_NVIC_EnableIRQ(EXTI2_11_IRQn);
+ }
+ 
+ 
+@@ -382,9 +383,9 @@ static void MX_EXTI2_DeInit(void)
+ {
+ 	HAL_GPIO_DeInit(BUTTON_USER2_GPIO_PORT, BUTTON_USER2_PIN);
+ 
+-	ResMgr_Release(RESMGR_RESOURCE_RIF_GPIOG, RESMGR_GPIO_PIN(8));
++	ResMgr_Release(RESMGR_RESOURCE_RIF_GPIOF, RESMGR_GPIO_PIN(11));
+ 
+-	HAL_NVIC_DisableIRQ(EXTI2_8_IRQn);
++	HAL_NVIC_DisableIRQ(EXTI2_11_IRQn);
+ }
+ 
+ /**
+@@ -394,7 +395,16 @@ static void MX_EXTI2_DeInit(void)
+   */
+ static void Exti2FallingCb(void)
+ {
+-  BSP_LED_Toggle(LED3);
++	static uint32_t last_press;
++	static uint8_t have_press;
++    uint32_t now = HAL_GetTick();
++
++	if (!have_press || (uint32_t)(now - last_press) >= 200U)
++	{
++	    last_press = now;
++	    have_press = 1;
++	    blinking = !blinking;  /* Your PH5 mapping */
++	}
+ }
+ 
+ /**
+diff --git a/Projects/STM32MP257F-EV1/Examples/GPIO/GPIO_EXTI/CM33/NonSecure/Src/stm32mp2xx_it.c b/Projects/STM32MP257F-EV1/Examples/GPIO/GPIO_EXTI/CM33/NonSecure/Src/stm32mp2xx_it.c
+index da69290..54377cf 100644
+--- a/Projects/STM32MP257F-EV1/Examples/GPIO/GPIO_EXTI/CM33/NonSecure/Src/stm32mp2xx_it.c
++++ b/Projects/STM32MP257F-EV1/Examples/GPIO/GPIO_EXTI/CM33/NonSecure/Src/stm32mp2xx_it.c
+@@ -219,7 +219,7 @@ void SysTick_Handler(void)
+   * @param  None
+   * @retval None
+   */
+-void EXTI2_8_IRQHandler(void)
++void EXTI2_11_IRQHandler(void)
+ {
+   HAL_EXTI_IRQHandler(&hexti);
+ }
