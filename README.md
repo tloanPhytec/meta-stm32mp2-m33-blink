@@ -16,7 +16,7 @@ STM32CubeMP2 GPIO_EXTI example ported to the phyFLEX-STM32MP25x Development Kit.
   * LED and current-limiting series resistor (~100 Ohm)
   * Bread Board for circuit prototyping
 
-This was tested with BSP-Yocto-OpenSTLinux-STM32MP2-PD26.1.0
+This was tested with BSP-Yocto-OpenSTLinux-STM32MP2-PD26.1.0 and was based on STM32CubeMP2 v1.3.2.
 
 ## BSP Integration
 
