@@ -20,6 +20,9 @@ With the phyFLEX-STM32MP25x Cortex-A35 cluster running Linux, the firmware intro
 
 This was tested with BSP-Yocto-OpenSTLinux-STM32MP2-PD26.1.0 and was based on STM32CubeMP2 v1.3.2.
 
+>[!NOTE]
+> **The Cortex-M33 firmware introduced by this example cannot be used while a PEB-AV-10 device tree overlay is enabled at the same time (these are disabled by default in BSP-Yocto-OpenSTLinux-STM32MP2-PD26.1.0) due to a pin mux conflict.**
+
 ## BSP Integration
 
 Navigate to your BSP's sources directory:
@@ -79,9 +82,19 @@ Stop the Cortex-M33:
 
 ## Verbose Description
 
-This example uses a small Yocto meta layer, meta-stm32mp2-m33-blink, in order to customize an M33 GPIO_EXTI example included by default in the BSP-Yocto-OpenSTLinux-STM32MP2-PD26.1.0 release. That default example works but there are a couple quality-of-life issues for developers using it as a basis for development:
+This meta-stm32mp2-m33-blink Yocto Meta Layer serves to improve an M33 GPIO_EXTI example included by default in the BSP-Yocto-OpenSTLinux-STM32MP2-PD26.1.0 release. That default example works but there are a couple quality-of-life issues for developers using it as a basis for development:
 
 * the default GPIO_EXTI example configures the Cortex-M33's input interrupt GPIO on a Fan Connector (X68) pin, thus it's not very safe or convenient to access and pull low.
-* the example comes from [PHYTEC's fork of STM32CubeMP2](https://github.com/phytec/STM32CubeMP2/tree/v1.2.0-phy). It lags ST's upstream development and doesn't port a majority of interface examples (WIP).
+* the default GPIO_EXTI example lacked debounce logic, where one button press could look like nothing happened due to the bounce in the contact (when two button presses occur very quickly, the second one can cancel the first).
+* the default GPIO_EXTI example comes from [PHYTEC's fork of STM32CubeMP2](https://github.com/phytec/STM32CubeMP2/tree/v1.2.0-phy). It lags ST's upstream development and does not port a majority of interface examples (WIP). Most developers will probably want to start from ST's latest examples since there are more examples available to help address more use cases. 
 
-This example improves that default recipe and serves as a reference for how to build Cortex-M33 examples taken directly from the upstream STM32CubeMP2 v1.3.2 repository using Yocto (that is no longer the latest but it was when this development began). The included patch (along with a side-by-side comparison of the PHYTEC phyFLEX Development Kit and ST STM32MP257-EV1 kit schematics) also clarifies how the GPIO_EXTI example and others like it must be modified in order to work properly on PHYTEC's phyFLEX-STM32MP25x Development Kit (to account for Soc implementation/pin muxing differences). 
+This meta layer improved the default GPIO_EXTI example in the following ways:
+
+* The GPIO input and output pins were moved to the AV Connectors in order to be more easily accesible.
+* Debounce magic was added to avoid multiple button presses from being triggered too quickly.
+
+    * The LED behavior was changed from toggling solid-on/solid-off to blinking/solid-off (for pizazz).
+ 
+* The upstream source for the example was changed from PHYTEC's fork to the [upstream STM32CubeMP2](https://github.com/STMicroelectronics/STM32CubeMP2) (branch=v1.3.2) repository (that is no longer the latest but it was when this development began).
+ 
+    * The patch introduced by this layer's .bbappend along with a side-by-side comparison of the PHYTEC phyFLEX Development Kit and ST STM32MP257-EV1 kit schematics helps clarify how the GPIO_EXTI example, and by extension others like it, must be modified in order to work on PHYTEC's phyFLEX-STM32MP25x Development Kit (in order to account for Soc implementation/pin muxing differences of the two platforms).
