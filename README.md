@@ -95,6 +95,6 @@ This meta layer improved the default GPIO_EXTI example in the following ways:
 
     * The LED behavior was changed from toggling solid-on/solid-off to blinking/solid-off (for pizazz).
  
-* The upstream source for the example was changed from PHYTEC's fork to the [upstream STM32CubeMP2](https://github.com/STMicroelectronics/STM32CubeMP2) (branch=v1.3.2) repository (that is no longer the latest but it was when this development began).
+* The upstream source for the example was changed from PHYTEC's fork to the [upstream STM32CubeMP2](https://github.com/STMicroelectronics/STM32CubeMP2) (tag=v1.3.2) repository (that is no longer the latest but it was when this development began).
  
     * The patch introduced by this layer's .bbappend along with a side-by-side comparison of the PHYTEC phyFLEX Development Kit and ST STM32MP257-EV1 kit schematics helps clarify how the GPIO_EXTI example, and by extension others like it, must be modified in order to work on PHYTEC's phyFLEX-STM32MP25x Development Kit (in order to account for Soc implementation/pin muxing differences of the two platforms).
